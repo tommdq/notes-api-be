@@ -1,56 +1,52 @@
+require('dotenv').config()
+require('./mongo')
+
 const express = require('express')
 const cors = require('cors')
-
 const app = express()
 const logger = require('./loggerMiddleware')
+const Note = require('./models/note')
 
 app.use(cors()) // Cualquier origen va a funcionar en nuestra api
 app.use(express.json())
-
 app.use(logger)
-
-let notes = [
-  {
-    id: 1,
-    content: 'Tengo que comprar esmalte',
-    date: 'hoy',
-    important: true
-  },
-  {
-    id: 2,
-    content: 'Comprar bajo',
-    date: 'mañana',
-    important: true
-  },
-  {
-    id: 3,
-    content: 'Vender criolla',
-    date: 'hoy',
-    important: true
-  }
-]
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World</h1>')
 })
 
 app.get('/api/notes', (req, res) => {
-  res.json(notes)
+  // ** El objeto vacio devuelve todas las notas
+  Note.find({})
+    .then(notes => {
+      res.json(notes)
+    })
 })
 
-app.get('/api/notes/:id', (req, res) => {
-  const id = +req.params.id
-  const note = notes.find(note => note.id === id)
+app.get('/api/notes/:id', (req, res, next) => {
+  const id = req.params.id
 
-  if (note) res.json(note)
-  else res.status(404).send()
+  // ** Diferencio errores dando un 404 si no encontro la nota o un 503 si los caracteres no son validos
+  Note.findById(id).then(note => {
+    if (note) {
+      res.json(note)
+    } else {
+      res.status(404).end()
+    }
+  }).catch(err => {
+    next(err)
+  })
 })
 
 app.delete('/api/notes/:id', (req, res) => {
-  const id = +req.params.id
-  notes = notes.filter(note => note.id !== id)
-
-  res.status(204).send()
+  const id = req.params.id
+  Note.findByIdAndDelete(id, (err, docs) => {
+    if (err) {
+      console.log(err)
+    } else {
+      console.log('Deleted: ', docs)
+    }
+  })
 })
 
 app.post('/api/notes', (req, res) => {
@@ -62,30 +58,30 @@ app.post('/api/notes', (req, res) => {
     })
   }
 
-  const ids = notes.map(note => note.id)
-  const maxId = Math.max(...ids)
-
-  const newNote = {
-    id: maxId + 1,
+  const newNote = new Note({
     content: note.content,
-    important:
-            typeof note.important !== 'undefined' ? note.important : false,
-    date: new Date().toISOString()
-  }
-
-  notes = [...notes, newNote]
-
-  res.json(newNote)
-})
-
-// ** Entra en todos los demas endpoints y este devuelve el error
-app.use((req, res) => {
-  res.status(404).json({
-    error: '404 Not Found'
+    date: new Date(),
+    important: note.important || false
   })
+
+  newNote.save()
+    .then(savedNote => {
+      res.json(savedNote)
+    })
 })
 
-const PORT = process.env.PORT || 3001
+// ** Entra en todos los demas endpoints y si ninguno devuelve nada gracias al next() entra a este y valida el error
+app.use((err, req, res, next) => {
+  console.error(err)
+
+  if (err.name === 'CastError') {
+    res.status(400).send({ error: 'request is not valid ' })
+  } else {
+    res.status(500).end()
+  }
+})
+
+const PORT = process.env.PORT
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
