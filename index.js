@@ -38,15 +38,28 @@ app.get('/api/notes/:id', (req, res, next) => {
   })
 })
 
-app.delete('/api/notes/:id', (req, res) => {
+app.put('/api/notes/:id', (req, res, next) => {
   const id = req.params.id
-  Note.findByIdAndDelete(id, (err, docs) => {
-    if (err) {
-      console.log(err)
-    } else {
-      console.log('Deleted: ', docs)
-    }
-  })
+  const note = req.body
+
+  const newNoteInfo = {
+    content: note.content,
+    important: note.important
+  }
+  // ** Agregamos tercer argumento para que nos devuelva la nueva nota { new : true}
+  Note.findByIdAndUpdate(id, newNoteInfo, { new: true })
+    .then(result => {
+      res.json(result)
+    })
+})
+
+app.delete('/api/notes/:id', (req, res, next) => {
+  const id = req.params.id
+
+  Note.findByIdAndDelete(id).then(result => {
+    res.json(result)
+    res.status(204).end()
+  }).catch(err => next(err))
 })
 
 app.post('/api/notes', (req, res) => {

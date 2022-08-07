@@ -2,8 +2,8 @@ POST http://localhost:3001/api/notes
 Content-Type: application/json
 
 {
-    "content": "Hola soy uaco",
-    "important": false
+    "content": "Hola soy Pau, la novia mas linda v.v",
+    "important": true
 }
 
 ###
